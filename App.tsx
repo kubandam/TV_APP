@@ -1,28 +1,40 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { findSamsungTVs, SamsungDiscovery } from './src/findSamsungTVs';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import BleTest from './src/BleTest';
+export default function App() {
+  const [tvs, setTvs] = useState<SamsungDiscovery[]>([]);
+  const [scanning, setScanning] = useState(true);
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  useEffect(() => {
+    findSamsungTVs(
+      (tv) => setTvs((prev) => (prev.find((p) => p.ip === tv.ip) ? prev : [...prev, tv])),
+      () => setScanning(false)
+    );
+  }, []);
 
   return (
     <View style={styles.container}>
-      <BleTest />
+      {scanning && <Text>Scanning…</Text>}
+      <FlatList
+        data={tvs}
+        keyExtractor={(item) => item.ip}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => {}}
+            style={styles.item}
+          >
+            <Text>Samsung TV ({item.ip})</Text>
+            <Text numberOfLines={1} style={styles.subtitle}>{item.location}</Text>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1, padding: 16, marginTop: 100 },
+  item: { padding: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  subtitle: { fontSize: 12, opacity: 0.6 },
 });
-
-export default App;
