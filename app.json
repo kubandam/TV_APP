@@ -1,4 +1,19 @@
 {
-  "name": "TVApp",
-  "displayName": "TVApp"
+  "expo": {
+    "name": "TVApp",
+    "slug": "tvapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tvapp.app"
+    },
+    "android": {
+      "package": "com.tvapp.app"
+    },
+    "plugins": ["expo-router"],
+    "scheme": "tvapp"
+  }
 }

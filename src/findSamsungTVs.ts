@@ -15,7 +15,7 @@ export type SamsungDiscovery = {
 export function findSamsungTVs(
   onResult: (tv: SamsungDiscovery) => void,
   onDone?: (list: SamsungDiscovery[]) => void,
-  timeoutMs = 4000
+  timeoutMs = 4000,
 ) {
   const socket = dgram.createSocket({ type: 'udp4' });
   const msg = Buffer.from(
@@ -23,11 +23,12 @@ export function findSamsungTVs(
       `HOST: ${SSDP_ADDR}:${SSDP_PORT}\r\n` +
       `MAN: "ssdp:discover"\r\n` +
       `MX: 2\r\n` +
-      `ST: ${SEARCH_TARGET}\r\n\r\n`
+      `ST: ${SEARCH_TARGET}\r\n\r\n`,
   );
 
   const results: Record<string, SamsungDiscovery> = {};
 
+  console.log('msg', msg);
   socket.on('message', (buf, rinfo) => {
     const text = buf.toString('utf8');
     if (!/samsung/i.test(text)) return;
@@ -35,13 +36,19 @@ export function findSamsungTVs(
     const headers: Record<string, string> = {};
     text.split('\r\n').forEach((line: string) => {
       const i = line.indexOf(':');
-      if (i > -1) headers[line.slice(0, i).toLowerCase()] = line.slice(i + 1).trim();
+      if (i > -1)
+        headers[line.slice(0, i).toLowerCase()] = line.slice(i + 1).trim();
     });
 
     const loc = headers['location'];
     const ipMatch = loc?.match(/https?:\/\/([^/:]+)/);
     const ip = ipMatch ? ipMatch[1] : rinfo.address;
-
+    console.log('ip', ip);
+    console.log('loc', loc);
+    console.log('headers', headers);
+    console.log('rinfo', rinfo);
+    console.log('text', text);
+    console.log('--------------------------------');
     if (ip && !results[ip]) {
       const tv = { ip, location: loc, raw: headers };
       results[ip] = tv;

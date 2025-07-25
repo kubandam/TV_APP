@@ -1,4 +1,5 @@
 const bleno = require('@abandonware/bleno');
+const { Buffer } = require('buffer');
 
 bleno.on('stateChange', state => {
   if (state === 'poweredOn') {
@@ -14,9 +15,10 @@ bleno.on('advertisingStart', () => {
         new bleno.Characteristic({
           uuid: '2a00', // Device Name
           properties: ['read'],
-          onReadRequest: (offset, cb) => cb(this.RESULT_SUCCESS, Buffer.from('Samsung‑Fake'))
-        })
-      ]
-    })
+          onReadRequest: (offset, cb) =>
+            cb(this.RESULT_SUCCESS, Buffer.from('Samsung‑Fake')),
+        }),
+      ],
+    }),
   ]);
 });
