@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSamsungRemote } from '../src/useSamsungRemote';
 
 const mockChannels = ['ČT1', 'Nova Action', 'Prima', 'ČT Sport'];
 
@@ -25,7 +26,15 @@ export default function ChannelControlScreen() {
   >([]);
   const router = useRouter();
 
-  // Funkcia pre uloženie kanálov do AsyncStorage
+  const {
+    sendKey,
+    sendChannelNumber,
+    isAuthenticated,
+    isConnecting,
+    pairingInProgress,
+    startPairing,
+  } = useSamsungRemote(ip as string);
+
   const saveChannelsToStorage = async (
     channels: Array<{ name: string; number: number }>,
   ) => {
@@ -37,7 +46,6 @@ export default function ChannelControlScreen() {
     }
   };
 
-  // Funkcia pre načítanie kanálov z AsyncStorage
   const loadChannelsFromStorage = async () => {
     try {
       const key = `tv_channels_${ip}`;
@@ -51,7 +59,6 @@ export default function ChannelControlScreen() {
     }
   };
 
-  // Načítanie kanálov pri načítaní komponentu
   useEffect(() => {
     loadChannelsFromStorage();
   }, [ip]);
@@ -67,29 +74,32 @@ export default function ChannelControlScreen() {
   };
 
   const handleChannelPress = (channel: { name: string; number: number }) => {
-    Alert.alert(
-      'Prepínanie kanálu',
-      `Prepínam na ${channel.name} (číslo ${channel.number})`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // TODO: poslať príkaz na TV pre prepínanie kanálu
-            console.log(
-              `Switching to channel ${channel.number} - ${channel.name}`,
-            );
-          },
-        },
-      ],
-    );
+    if (isAuthenticated) {
+      sendChannelNumber(channel.number);
+      Alert.alert(
+        'Prepínanie kanálu',
+        `Prepínam na ${channel.name} (číslo ${channel.number})`,
+        [{ text: 'OK' }],
+      );
+    } else {
+      Alert.alert('Nie je pripojené', 'Najprv sa pripojte k TV');
+    }
   };
 
   const handleUpPress = () => {
-    console.log('Switching to higher channel');
+    if (isAuthenticated) {
+      sendKey('CH_UP');
+    } else {
+      Alert.alert('Nie je pripojené', 'Najprv sa pripojte k TV');
+    }
   };
 
   const handleDownPress = () => {
-    console.log('Switching to lower channel');
+    if (isAuthenticated) {
+      sendKey('CH_DOWN');
+    } else {
+      Alert.alert('Nie je pripojené', 'Najprv sa pripojte k TV');
+    }
   };
 
   const handleChannelOptions = (channel: { name: string; number: number }) => {
@@ -151,7 +161,6 @@ export default function ChannelControlScreen() {
     setSelectedChannel(channel.name);
     setChannelNumber(channel.number.toString());
 
-    // Vymazať pôvodný kanál a zoradiť zvyšok
     const updatedChannels = savedChannels
       .filter(ch => !(ch.name === channel.name && ch.number === channel.number))
       .sort((a, b) => a.number - b.number);
@@ -171,7 +180,6 @@ export default function ChannelControlScreen() {
       return;
     }
 
-    // Kontrola, či už kanál existuje (okrem aktuálne editovaného)
     const channelExists = savedChannels.some(
       channel =>
         (channel.name === selectedChannel &&
@@ -184,14 +192,12 @@ export default function ChannelControlScreen() {
       return;
     }
 
-    // Pridať nový kanál do zoznamu a zoradiť podľa čísla
     const newChannels = [
       ...savedChannels,
       { name: selectedChannel, number },
     ].sort((a, b) => a.number - b.number);
     setSavedChannels(newChannels);
 
-    // Uložiť do AsyncStorage
     saveChannelsToStorage(newChannels);
 
     setSelectedChannel(null);
@@ -211,19 +217,67 @@ export default function ChannelControlScreen() {
       </View>
 
       <View style={styles.controlsContainer}>
+        <View style={styles.connectionStatus}>
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: isAuthenticated
+                  ? '#4CAF50'
+                  : pairingInProgress
+                  ? '#FFA500'
+                  : '#FF5722',
+              },
+            ]}
+          />
+          <Text style={styles.statusText}>
+            {isConnecting
+              ? 'Pripojujem...'
+              : pairingInProgress
+              ? 'Pairing...'
+              : isAuthenticated
+              ? 'Pripojené'
+              : 'Nie je pripojené'}
+          </Text>
+          {!isAuthenticated && !isConnecting && !pairingInProgress && (
+            <TouchableOpacity
+              style={styles.pairingButton}
+              onPress={startPairing}
+            >
+              <Text style={styles.pairingButtonText}>Pripojiť</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <Text style={styles.controlsTitle}>Prepínanie kanálov</Text>
         <View style={styles.controlsRow}>
           <TouchableOpacity
-            style={styles.controlButton}
+            style={[
+              styles.controlButton,
+              !isAuthenticated && styles.disabledButton,
+            ]}
             onPress={handleUpPress}
+            disabled={!isAuthenticated}
           >
-            <Ionicons name="chevron-up" size={32} color="#333" />
+            <Ionicons
+              name="chevron-up"
+              size={32}
+              color={isAuthenticated ? '#333' : '#999'}
+            />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.controlButton}
+            style={[
+              styles.controlButton,
+              !isAuthenticated && styles.disabledButton,
+            ]}
             onPress={handleDownPress}
+            disabled={!isAuthenticated}
           >
-            <Ionicons name="chevron-down" size={32} color="#333" />
+            <Ionicons
+              name="chevron-down"
+              size={32}
+              color={isAuthenticated ? '#333' : '#999'}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -525,5 +579,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
     marginTop: 5,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 20,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginRight: 10,
+  },
+  pairingButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  pairingButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });

@@ -1,10 +1,9 @@
-// findSamsungTVs.ts
 import dgram from 'react-native-udp';
 import { Buffer } from 'buffer';
 
 const SSDP_ADDR = '239.255.255.250';
 const SSDP_PORT = 1900;
-const SEARCH_TARGET = 'urn:samsung.com:device:RemoteControlReceiver:1'; // or 'ssdp:all'
+const SEARCH_TARGET = 'ssdp:all';
 
 export type SamsungDiscovery = {
   ip: string;
@@ -15,7 +14,7 @@ export type SamsungDiscovery = {
 export function findSamsungTVs(
   onResult: (tv: SamsungDiscovery) => void,
   onDone?: (list: SamsungDiscovery[]) => void,
-  timeoutMs = 4000,
+  timeoutMs = 5000,
 ) {
   const socket = dgram.createSocket({ type: 'udp4' });
   const msg = Buffer.from(
@@ -27,11 +26,13 @@ export function findSamsungTVs(
   );
 
   const results: Record<string, SamsungDiscovery> = {};
+  let foundViaSSDP = false;
 
-  console.log('msg', msg);
   socket.on('message', (buf, rinfo) => {
     const text = buf.toString('utf8');
-    if (!/samsung/i.test(text)) return;
+    console.log('[SSDP]', rinfo.address, text);
+
+    if (!/samsung|smarttv|tv|remote/i.test(text)) return;
 
     const headers: Record<string, string> = {};
     text.split('\r\n').forEach((line: string) => {
@@ -43,27 +44,63 @@ export function findSamsungTVs(
     const loc = headers['location'];
     const ipMatch = loc?.match(/https?:\/\/([^/:]+)/);
     const ip = ipMatch ? ipMatch[1] : rinfo.address;
-    console.log('ip', ip);
-    console.log('loc', loc);
-    console.log('headers', headers);
-    console.log('rinfo', rinfo);
-    console.log('text', text);
-    console.log('--------------------------------');
+
     if (ip && !results[ip]) {
       const tv = { ip, location: loc, raw: headers };
       results[ip] = tv;
+      foundViaSSDP = true;
       onResult(tv);
     }
   });
 
   socket.bind(() => {
-    // join multicast
     socket.addMembership(SSDP_ADDR);
     socket.send(msg, 0, msg.length, SSDP_PORT, SSDP_ADDR);
   });
 
-  setTimeout(() => {
+  setTimeout(async () => {
     socket.close();
+
+    if (!foundViaSSDP) {
+      console.log('[Fallback] Spúšťam WebSocket overenie IP rozsahu...');
+      const fallback = await fallbackIPScan();
+      if (fallback) {
+        const tv = { ip: fallback, raw: {}, location: undefined };
+        onResult(tv);
+        onDone?.([tv]);
+        return;
+      }
+    }
+
     onDone?.(Object.values(results));
   }, timeoutMs);
+}
+
+async function fallbackIPScan(): Promise<string | null> {
+  const base = '192.168.1.';
+  for (let i = 1; i <= 254; i++) {
+    const ip = `${base}107`;
+    const url =
+      `ws://${ip}:8001/api/v2/channels/samsung.remote.control?name=` +
+      Buffer.from('AutoScanApp').toString('base64');
+
+    try {
+      const ws = new WebSocket(url);
+      const result = await new Promise<boolean>(resolve => {
+        ws.onopen = () => {
+          ws.close();
+          resolve(true);
+        };
+        ws.onerror = () => resolve(false);
+        setTimeout(() => resolve(false), 1000);
+      });
+
+      if (result) {
+        console.log('[Fallback] Našiel som TV na IP:', ip);
+        return ip;
+      }
+    } catch {}
+  }
+
+  return null;
 }
