@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { findSamsungTVs, SamsungDiscovery } from '../src/findSamsungTVs';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TVSelectionScreen() {
   const [tvs, setTvs] = useState<SamsungDiscovery[]>([]);
@@ -38,7 +39,7 @@ export default function TVSelectionScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.back} onPress={() => router.push('/home')}>
-          <Image source={require('../assets/back.png')} style={styles.back} />
+          <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.title}>Vyber TV na pripojenie</Text>
       </View>
