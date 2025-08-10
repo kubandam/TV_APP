@@ -1,21 +1,19 @@
 import React from 'react';
-import { Image, StyleSheet, Text } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 export default function Logo() {
   return (
-    // <Image
-    //   source={require('@/app/assets/logo.png')}
-    //   style={styles.logo}
-    //   resizeMode="contain"
-    // />
-    <Text style={styles.logo}>LOGO</Text>
+    <Image
+      source={require('../../assets/logo.png')}
+      style={styles.logo}
+      resizeMode="contain"
+    />
   );
 }
 
 const styles = StyleSheet.create({
   logo: {
-    color: 'white',
-    fontSize: 52,
-    fontWeight: 'medium',
+    width: '85%',
+    marginBottom: 100,
   },
 });

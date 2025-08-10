@@ -14,6 +14,7 @@ export default function Layout() {
       <Stack.Screen name="findTVs" />
       <Stack.Screen name="channel-control" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="list" />
     </Stack>
     </GestureHandlerRootView>
   );

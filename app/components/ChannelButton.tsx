@@ -1,72 +1,49 @@
-// components/ChannelButton.tsx
 import React from 'react'
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  View,
-} from 'react-native'
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native'
 import COLORS from '../theme/colors'
 
 type ChannelButtonProps = {
-  /** Čokoľvek, čo chcete zobraziť uprostred (napr. "ČT1", "+") */
   label: string
-  /** Pořadové číslo, které se ukáže v levém rohu */
   index?: number
-  /** Označuje, či je tlačítko právě vybrané */
   selected?: boolean
-  /** Volá sa pri tapnutí */
   onPress: () => void
+  onLongPress?: () => void
 }
 
-export default function ChannelButton({
-  label,
-  index,
-  selected = false,
-  onPress,
-}: ChannelButtonProps) {
+export default function ChannelButton({ label, index, selected = false, onPress, onLongPress }: ChannelButtonProps) {
+  const fontSize = label.length > 12 ? 14 : label.length > 8 ? 18 : 22
   return (
     <TouchableOpacity
-      style={[
-        styles.button,
-        selected ? styles.selected : styles.unselected,
-      ]}
+      style={[styles.button, selected ? styles.selected : styles.unselected]}
       onPress={onPress}
-      activeOpacity={0.7}
+      onLongPress={onLongPress}
+      activeOpacity={0.75}
     >
-      {typeof index === 'number' && (
-        <Text style={styles.index}>{index}.</Text>
-      )}
-      <Text
-        style={[
-          styles.label,
-          selected ? styles.labelSelected : styles.labelUnselected,
-        ]}
-      >
+      {typeof index === 'number' && <Text style={styles.index}>{index}.</Text>}
+      <Text style={[styles.label, { fontSize }, selected ? styles.labelSelected : styles.labelUnselected]} numberOfLines={2}>
         {label}
       </Text>
     </TouchableOpacity>
   )
 }
 
-const SIZE = 90
+const SIZE = 96
 
 const styles = StyleSheet.create({
   button: {
     width: SIZE,
     height: SIZE,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 8,
+    marginBottom: 12,
     position: 'relative',
+    paddingHorizontal: 4, // nech má text priestor
   } as ViewStyle,
   selected: {
-    backgroundColor: COLORS.white,
-    borderColor: COLORS.textPrimary,    
+    backgroundColor: '#FFD33D',
+    borderColor: COLORS.textPrimary,
   } as ViewStyle,
   unselected: {
     backgroundColor: COLORS.white,
@@ -74,18 +51,19 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   index: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 6,
+    left: 8,
     fontSize: 12,
     color: COLORS.textPrimary,
-    fontWeight: '600',
+    fontWeight: '700',
   } as TextStyle,
   label: {
-    fontSize: 24,
+    textAlign: 'center',
+    fontWeight: '700',
   } as TextStyle,
   labelSelected: {
     color: COLORS.textPrimary,
-    fontWeight: 'bold',
+    fontWeight: '800',
   } as TextStyle,
   labelUnselected: {
     color: COLORS.textPrimary,

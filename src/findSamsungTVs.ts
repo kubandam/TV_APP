@@ -77,7 +77,7 @@ export function findSamsungTVs(
 }
 
 async function fallbackIPScan(): Promise<string | null> {
-  const base = '192.168.1.';
+  const base = '192.168.0.';
   for (let i = 1; i <= 254; i++) {
     const ip = `${base}107`;
     const url =
