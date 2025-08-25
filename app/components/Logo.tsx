@@ -13,7 +13,8 @@ export default function Logo() {
 
 const styles = StyleSheet.create({
   logo: {
-    width: '85%',
+    width: '65%',
     marginBottom: 100,
+    left: 22,
   },
 });

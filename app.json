@@ -19,6 +19,24 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "tvapp"
+    "scheme": "tvapp",
+    "fonts": [
+      {
+        "asset": "assets/fonts/AVALONT.ttf",
+        "family": "Avalon-Thin"
+      },
+      {
+        "asset": "assets/fonts/AVALONN.ttf",
+        "family": "Avalon-Normal"
+      },
+      {
+        "asset": "assets/fonts/AVALONI.ttf",
+        "family": "Avalon-Italic"
+      },
+      {
+        "asset": "assets/fonts/AVALONB.ttf",
+        "family": "Avalon-Bold"
+      }
+    ]
   }
 }

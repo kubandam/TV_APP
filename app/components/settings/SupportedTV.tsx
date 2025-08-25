@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import COLORS from '@/app/theme/colors'
+import { textStyles } from '@/app/theme/fonts'
 
 export default function SupportedTV() {
   return (
@@ -18,8 +19,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   text: {
+    ...textStyles.h3,
     color: COLORS.textSecondary,
-    fontSize: 20,
-    fontWeight: 400,
   },
 })

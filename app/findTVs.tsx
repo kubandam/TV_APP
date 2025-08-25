@@ -12,6 +12,7 @@ import {
 import { findSamsungTVs, SamsungDiscovery } from '../src/findSamsungTVs';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { textStyles } from '@/app/theme/fonts';
 
 export default function TVSelectionScreen() {
   const [tvs, setTvs] = useState<SamsungDiscovery[]>([]);
@@ -35,6 +36,13 @@ export default function TVSelectionScreen() {
     });
   };
 
+  const handleRemoteControl = (tv: SamsungDiscovery) => {
+    router.push({
+      pathname: '/samsung-remote-demo',
+      params: { ip: tv.ip },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
@@ -54,15 +62,24 @@ export default function TVSelectionScreen() {
         data={tvs}
         keyExtractor={item => item.ip}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.item}
-            onPress={() => handleSelect(item)}
-          >
-            <Text style={styles.itemText}>{item.ip}</Text>
-            {item.location ? (
-              <Text style={styles.location}>{item.location}</Text>
-            ) : null}
-          </TouchableOpacity>
+          <View style={styles.item}>
+            <TouchableOpacity
+              style={styles.itemContent}
+              onPress={() => handleSelect(item)}
+            >
+              <Text style={styles.itemText}>{item.ip}</Text>
+              {item.location ? (
+                <Text style={styles.location}>{item.location}</Text>
+              ) : null}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.remoteButton}
+              onPress={() => handleRemoteControl(item)}
+            >
+              <Ionicons name="game-controller" size={20} color="white" />
+              <Text style={styles.remoteButtonText}>Dálkové ovládání</Text>
+            </TouchableOpacity>
+          </View>
         )}
         ListEmptyComponent={!scanning ? <Text>Žiadne TV nenájdené</Text> : null}
       />
@@ -78,7 +95,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 16,
   },
-  title: { fontSize: 22, fontWeight: 'bold' },
+  title: { ...textStyles.h3 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -97,7 +114,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     width: 320,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  itemText: { fontSize: 18, fontWeight: '500' },
-  location: { fontSize: 12, color: '#888' },
+  itemContent: {
+    flex: 1,
+  },
+  remoteButton: {
+    backgroundColor: '#EA5670',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  remoteButtonText: {
+    ...textStyles.captionBold,
+    color: 'white',
+    marginLeft: 4,
+  },
+  itemText: { ...textStyles.h3 },
+  location: { ...textStyles.caption, color: '#888' },
 });

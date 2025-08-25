@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import Logo from './components/Logo';
 import COLORS from './theme/colors';
 import { useRouter } from 'expo-router';
 
+// 192.168.63.103
 export default function SplashScreen() {
   const router = useRouter();
   useEffect(() => {

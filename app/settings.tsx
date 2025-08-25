@@ -10,11 +10,13 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import COLORS from '@/app/theme/colors'
+import { textStyles } from '@/app/theme/fonts'
 
 import HowItWorks from './components/settings/HowItWorks'
 import SupportedTV from './components/settings/SupportedTV'
 import ConnectionStatus from './components/settings/ConnectionStatus'
 import SignOut from './components/settings/SignOut'
+import TestingApp from './components/settings/TestingApp'
 import { Ionicons } from '@expo/vector-icons'
 
 type MenuItem = {
@@ -30,6 +32,7 @@ const MENU: MenuItem[] = [
   { key: 'supported', title: 'Seznam schválených TV', label: 'Na jaké TV aplikace funguje', component: SupportedTV },
   { key: 'connection', title: 'Nastavení připojení k TV', label: 'Propojeno / Nepropojeno s TV', component: ConnectionStatus },
   { key: 'signout', title: 'Odhlásit členství', label: 'Odhlásit členství', component: SignOut },
+  { key: 'testing', title: 'Testovací aplikace', label: 'Testovací aplikace', component: TestingApp },
 ]
 
 export default function Settings() {
@@ -118,12 +121,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.textPrimary,
   },
   tvText: {
+    ...textStyles.h2,
     color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: 500,
   },
   title: {
-    fontSize: 24,
+    ...textStyles.h2,
     color: COLORS.textPrimary,
     textAlign: 'center',
     marginVertical: 15,
@@ -135,9 +137,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   menuLabel: {
-    fontSize: 20,
+    ...textStyles.h3,
     color: COLORS.textSecondary,
-    fontWeight: 400,
   },
   menuItemContent: {
     flexDirection: 'row',

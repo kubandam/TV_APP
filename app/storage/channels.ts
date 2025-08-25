@@ -1,17 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
-export type SavedChannel = { id?: string; label: string; index: number }
-const KEY = 'selectedChannels'
+export type SavedChannel = { label: string; appOrder: number; tvNumber?: number, id?: string }
+const KEY = 'selected_channels'
+      
+export async function loadSelectedChannels(): Promise<SavedChannel[]> {
+  const v2 = await AsyncStorage.getItem(KEY)
+  if (v2) return JSON.parse(v2)
 
-export async function saveSelectedChannels(channels: SavedChannel[]) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(channels))
+  return []
 }
 
-export async function loadSelectedChannels(): Promise<SavedChannel[] | null> {
-  const raw = await AsyncStorage.getItem(KEY)
-  return raw ? (JSON.parse(raw) as SavedChannel[]) : null
+export async function saveSelectedChannels(list: SavedChannel[]) {
+  await AsyncStorage.setItem(KEY, JSON.stringify(list))
 }
-
 export async function clearSelectedChannels() {
   await AsyncStorage.removeItem(KEY)
 }
