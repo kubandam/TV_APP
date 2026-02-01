@@ -3,6 +3,8 @@ package com.tvapp.samsungws
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import okhttp3.*
+import okhttp3.ConnectionSpec
+import okhttp3.TlsVersion
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
@@ -32,9 +34,20 @@ class SamsungWsModule(private val reactContext: ReactApplicationContext) :
     val ctx = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, SecureRandom())
 
+    // Broaden TLS compatibility (older Samsung TVs may only support TLS 1.0/1.1)
+    val compatible = ConnectionSpec.Builder(ConnectionSpec.COMPATIBLE_TLS)
+      .tlsVersions(TlsVersion.TLS_1_2, TlsVersion.TLS_1_1, TlsVersion.TLS_1_0)
+      .allEnabledCipherSuites()
+      .build()
+
     return OkHttpClient.Builder()
       .sslSocketFactory(ctx.socketFactory, tm)
       .hostnameVerifier { hostname, _ -> hostname == allowedHost } // only trust this IP/host
+      .connectionSpecs(listOf(compatible, ConnectionSpec.CLEARTEXT))
+      .connectTimeout(5, TimeUnit.SECONDS)
+      .readTimeout(15, TimeUnit.SECONDS)
+      .writeTimeout(15, TimeUnit.SECONDS)
+      .callTimeout(20, TimeUnit.SECONDS)
       .pingInterval(25, TimeUnit.SECONDS)
       .retryOnConnectionFailure(true)
       .build()

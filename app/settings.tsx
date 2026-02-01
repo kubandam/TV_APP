@@ -17,27 +17,44 @@ import SupportedTV from './components/settings/SupportedTV'
 import ConnectionStatus from './components/settings/ConnectionStatus'
 import SignOut from './components/settings/SignOut'
 import TestingApp from './components/settings/TestingApp'
+import AdSwitchSettings from './components/settings/AdSwitchSettings'
+import SimulationMode from './components/settings/SimulationMode'
 import { Ionicons } from '@expo/vector-icons'
+import { useTVConnection } from '@/src/TVConnectionContext'
 
 type MenuItem = {
   key: string
   title: string
   label: string
   component: React.FC
+  showOnlyInSimulation?: boolean
 }
 
 const TITLE = 'Nastavení'
-const MENU: MenuItem[] = [
+const ALL_MENU: MenuItem[] = [
   { key: 'how', title: 'Jak TV aplikace funguje', label: 'Jak aplikace funguje', component: HowItWorks },
   { key: 'supported', title: 'Seznam schválených TV', label: 'Na jaké TV aplikace funguje', component: SupportedTV },
   { key: 'connection', title: 'Nastavení připojení k TV', label: 'Propojeno / Nepropojeno s TV', component: ConnectionStatus },
+  { key: 'adswitch', title: 'Přepínání při reklamách', label: 'Přepínání při reklamách', component: AdSwitchSettings },
+  { key: 'simulation', title: 'Simulačný mód', label: '🎮 Simulačný mód (testovanie)', component: SimulationMode },
   { key: 'signout', title: 'Odhlásit členství', label: 'Odhlásit členství', component: SignOut },
   { key: 'testing', title: 'Testovací aplikace', label: 'Testovací aplikace', component: TestingApp },
 ]
 
 export default function Settings() {
   const router = useRouter()
+  const { simulationMode } = useTVConnection()
   const [active, setActive] = useState<string | null>(null)
+  
+  // Filter menu based on simulation mode
+  const MENU = React.useMemo(() => {
+    return ALL_MENU.filter(item => {
+      if (item.showOnlyInSimulation) {
+        return simulationMode
+      }
+      return true
+    })
+  }, [simulationMode])
 
   // Find the active component
   const ActiveComponent = active
@@ -52,11 +69,15 @@ export default function Settings() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => {
-          if (active) setActive(null)
-          else router.back()
-        }}>
-          <Ionicons name="chevron-back" size={30} color={COLORS.textPrimary} style={styles.back} />
+        <TouchableOpacity 
+          onPress={() => {
+            if (active) setActive(null)
+            else router.back()
+          }}
+          style={styles.headerLeft}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={40} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.tvBox}>
           <Text style={styles.tvText}>TV</Text>
@@ -104,14 +125,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    height: 44,
+    marginRight: 30,
   },
-  back: {
-    top: -12,
-    left: -50,
-    position: 'absolute',
-    backgroundColor: 'transparent',
-    width: 24,
-    height: 24,
+  headerLeft: {
+    height: 60,
+    justifyContent: 'center',
+    paddingRight: 20,
   },
   tvBox: {
     backgroundColor: COLORS.white,

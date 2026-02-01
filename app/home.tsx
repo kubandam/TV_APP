@@ -11,8 +11,7 @@ import {
   SavedChannel,
 } from './storage/channels';
 import { RemoteKey } from '@/src/useSamsungRemoteController';
-import { usePersistentTVConnection } from '@/src/usePersistentTVConnection';
-import { useFocusEffect } from '@react-navigation/native';
+import { useTVConnection } from '@/src/TVConnectionContext';
 
 // New local type (= what ChannelsButtons expects)
 type Channel = { label: string; appOrder: number; tvNumber?: number };
@@ -23,22 +22,21 @@ export default function Home() {
     new Set(),
   );
   const [refreshKey, setRefreshKey] = useState(0);
-  
-  // Use the persistent TV connection hook
-  const { 
-    isConnected, 
-    connectedTVIP, 
-    connectedTVName,
-    remoteController,
-    refreshConnectionState
-  } = usePersistentTVConnection();
+  const { isConnected, connectedTVName, connectedTVIP, refreshConnectionState, remoteController, runChannelTest } = useTVConnection();
+
+
+  // Debug logging
+  console.log('Home screen - isConnected:', isConnected);
+  console.log('Home screen - connectedTVIP:', connectedTVIP);
+  console.log('Home screen - connectedTVName:', connectedTVName);
+  console.log('Home screen - remoteController:', remoteController);
 
   // Refresh connection state when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshConnectionState();
-    }, [refreshConnectionState])
-  );
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     refreshConnectionState();
+  //   }, [refreshConnectionState])
+  // );
 
   // Load + migrate old shape {label,index} -> {label,appOrder}
   useEffect(() => {
@@ -116,7 +114,7 @@ export default function Home() {
 
   // Channel switching functionality
   const handleChannelPress = async (tvNumber: number) => {
-    if (!isConnected) {
+    if (!remoteController.isConnected) {
       Alert.alert(
         'Nepřipojeno k TV', 
         'Nejprve se připojte k TV v nastavení.',

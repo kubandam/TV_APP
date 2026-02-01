@@ -8,7 +8,7 @@ import type { SamsungDiscovery } from '@/src/useSamsungDiscovery';
 import { findSamsungTVs } from '@/src/useSamsungDiscovery';
 import { RemoteKey, useSamsungRemoteController } from '@/src/useSamsungRemoteController';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePersistentTVConnection } from '@/src/usePersistentTVConnection';
+import { useTVConnection } from '@/src/TVConnectionContext';
 import { useFocusEffect } from '@react-navigation/native';
 
 type Props = {
@@ -23,22 +23,23 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
   const [selectedTv, setSelectedTv] = useState<SamsungDiscovery | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Force refresh when needed
 
-  // Use the enhanced remote controller hook
-  const {
-    ip,
-    connect,
-    disconnect,
-    saveConnectedTV,
-    clearSavedTV,
-    setAutoConnect,
-    autoConnectEnabled,
-    connectedTvName,
-  } = useSamsungRemoteController();
-
+  // Use the TV connection from context
   const { 
-    isConnected,
+    connectionInfo,
+    connectToTV,
+    disconnectFromTV,
+    forgetTV,
     remoteController 
-  } = usePersistentTVConnection();
+  } = useTVConnection();
+
+  // Extract values for easier access
+  const { ip, name: connectedTvName, isConnected } = connectionInfo;
+
+  // Debug logging
+  console.log('Settings screen - isConnected:', isConnected);
+  console.log('Settings screen - ip:', ip);
+  console.log('Settings screen - connectedTvName:', connectedTvName);
+  console.log('Settings screen - remoteController:', remoteController);
 
   // Refresh component state when screen comes into focus
   useFocusEffect(
@@ -94,31 +95,28 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
     try {
       // If already connected to this TV, disconnect first
       if (isConnected && ip === tv.ip) {
-        await disconnect();
+        await disconnectFromTV();
         setSelectedTv(null);
         return;
       }
 
-      // Save the TV connection for persistence
-      await saveConnectedTV(tv.ip, tv.name || tv.raw?.['friendlyname']);
       setSelectedTv(tv);
 
-      // Connect to the TV
-      await connect(tv.ip);
+      // Connect to the TV using the persistent connection system
+      const success = await connectToTV(tv.ip, tv.name || tv.raw?.['friendlyname']);
+      if (!success) {
+        console.error('Failed to connect to TV');
+        setSelectedTv(null);
+      }
     } catch (error) {
       console.error('Failed to connect to TV:', error);
+      setSelectedTv(null);
     }
   };
 
-  const handleAutoConnectToggle = async (enabled: boolean) => {
-    await setAutoConnect(enabled);
-  };
 
   const handleForgetTV = async () => {
-    if (isConnected) {
-      await disconnect();
-    }
-    await clearSavedTV();
+    await forgetTV();
     setSelectedTv(null);
   };
 
@@ -160,7 +158,7 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
         />
       </View>
       
-      <View style={s.testCard}>
+      {/* <View style={s.testCard}>
         <View style={s.statusRow}>
           <View
             style={[
@@ -187,39 +185,6 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
               : 'Nepřipojeno'}
           </Text>
         </View>
-
-        <View style={s.buttonRow}>
-          <TouchableOpacity
-            style={[
-              s.testBtn,
-              remoteController.status !== 'DISCONNECTED' && s.btnDisabled,
-            ]}
-            disabled={remoteController.status !== 'DISCONNECTED'}
-            onPress={() => {
-              if (ip) {
-                remoteController.connect(ip);
-              }
-            }}
-          >
-            <Text style={s.testBtnText}>Connect</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.testBtn, !remoteController.isConnected && s.btnDisabled]}
-            disabled={!remoteController.isConnected}
-            onPress={() => {
-              remoteController.disconnect();
-            }}
-          >
-            <Text style={s.testBtnText}>Disconnect</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.testBtn, s.refreshBtn]}
-            onPress={handleRefresh}
-          >
-            <Text style={s.testBtnText}>🔄</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={s.buttonRow}>
           <TouchableOpacity
             style={[s.testBtn, !remoteController.isConnected && s.btnDisabled]}
@@ -260,20 +225,8 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
           ))}
         </View>
       </View>
-      
-      <View style={s.row}>
-        <Text style={s.label}>Auto-připojení</Text>
-        <Switch
-          value={autoConnectEnabled}
-          onValueChange={handleAutoConnectToggle}
-          trackColor={{ false: '#c9cbd3', true: '#4A6EB4' }}
-          thumbColor="#ffffff"
-          ios_backgroundColor="#c9cbd3"
-          style={[s.switch, { transform: [{ scale: 1.5 }] }]}
-        />
-      </View>
-
-      {isConnected && (
+       */}
+      {/* {isConnected && (
         <View style={s.connectedInfo}>
           <Text style={s.connectedText}>
             Připojeno k: {connectedTvName || ip}
@@ -282,10 +235,10 @@ export default function ConnectionStatus({ initialKnown = [] }: Props) {
             <Text style={s.forgetButtonText}>Zapomenout TV</Text>
           </Pressable>
         </View>
-      )}
+      )} */}
 
       <Text style={s.section}>Zařízení</Text>
-      <Text style={s.subtitle}>{subtitle}</Text>
+      {/* <Text style={s.subtitle}>{subtitle}</Text> */}
 
       <FlatList
         data={wifiEnabled ? tvs : []}

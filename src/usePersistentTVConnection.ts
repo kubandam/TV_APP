@@ -28,8 +28,8 @@ export function usePersistentTVConnection() {
     autoConnectEnabled: true,
   });
 
-  // Use the full remote controller hook
-  const remoteController = useSamsungRemoteController();
+  // Use the full remote controller hook in persistent mode
+  const remoteController = useSamsungRemoteController(true);
 
   // Load saved connection info on mount
   useEffect(() => {
@@ -40,6 +40,9 @@ export function usePersistentTVConnection() {
           AsyncStorage.getItem(STORAGE_KEYS.CONNECTED_TV_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.AUTO_CONNECT),
         ]);
+
+        console.log('Loading connection info:', { savedIp, savedName, autoConnect });
+        console.log('Remote controller isConnected:', remoteController.isConnected);
 
         setConnectionInfo({
           ip: savedIp || '',
@@ -58,26 +61,32 @@ export function usePersistentTVConnection() {
 
   // Update connection info when remote controller state changes
   useEffect(() => {
+    console.log('Remote controller state changed:', {
+      ip: remoteController.ip,
+      isConnected: remoteController.isConnected,
+      status: remoteController.status
+    });
+    
     setConnectionInfo(prev => {
       const newState = {
         ...prev,
         ip: remoteController.ip,
         isConnected: remoteController.isConnected,
-        autoConnectEnabled: remoteController.autoConnectEnabled,
       };
+      
+      console.log('Updating connection info:', { prev, newState });
       
       // Only update if something actually changed
       if (
         prev.ip !== newState.ip ||
-        prev.isConnected !== newState.isConnected ||
-        prev.autoConnectEnabled !== newState.autoConnectEnabled
+        prev.isConnected !== newState.isConnected
       ) {
         return newState;
       }
       
       return prev;
     });
-  }, [remoteController.ip, remoteController.isConnected, remoteController.autoConnectEnabled]);
+  }, [remoteController.ip, remoteController.isConnected]);
 
   const connectToTV = useCallback(async (ip: string, name?: string) => {
     try {
@@ -116,6 +125,24 @@ export function usePersistentTVConnection() {
     }
   }, [remoteController]);
 
+  // Manual disconnect function that actually disconnects the WebSocket
+  const forceDisconnect = useCallback(async () => {
+    try {
+      remoteController.disconnect();
+      
+      // Update local state immediately
+      setConnectionInfo(prev => ({
+        ...prev,
+        isConnected: false,
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to force disconnect from TV:', error);
+      return false;
+    }
+  }, [remoteController]);
+
   const forgetTV = useCallback(async () => {
     try {
       if (remoteController.isConnected) {
@@ -140,7 +167,7 @@ export function usePersistentTVConnection() {
 
   const setAutoConnect = useCallback(async (enabled: boolean) => {
     try {
-      await remoteController.setAutoConnect(enabled);
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTO_CONNECT, enabled.toString());
       
       // Update local state immediately
       setConnectionInfo(prev => ({
@@ -153,7 +180,7 @@ export function usePersistentTVConnection() {
       console.error('Failed to set auto-connect:', error);
       return false;
     }
-  }, [remoteController]);
+  }, []);
 
   const getSavedTVInfo = useCallback(async () => {
     try {
@@ -174,9 +201,8 @@ export function usePersistentTVConnection() {
       ...prev,
       isConnected: remoteController.isConnected,
       ip: remoteController.ip,
-      autoConnectEnabled: remoteController.autoConnectEnabled,
     }));
-  }, [remoteController.isConnected, remoteController.ip, remoteController.autoConnectEnabled]);
+  }, [remoteController.isConnected, remoteController.ip]);
 
   // Channel test functionality
   const runChannelTest = useCallback((firstChannel: number, secondChannel: number, time = 2) => {
@@ -241,6 +267,7 @@ export function usePersistentTVConnection() {
     // Connection management
     connectToTV,
     disconnectFromTV,
+    forceDisconnect,
     forgetTV,
     setAutoConnect,
     getSavedTVInfo,

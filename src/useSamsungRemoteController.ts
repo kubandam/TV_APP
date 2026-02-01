@@ -27,7 +27,6 @@ const STORAGE_KEYS = {
   CONNECTED_TV_IP: 'samsung_connected_tv_ip',
   CONNECTED_TV_NAME: 'samsung_connected_tv_name',
   CONNECTED_TV_TOKEN: 'samsung_connected_tv_token',
-  AUTO_CONNECT: 'samsung_auto_connect_enabled',
 } as const;
 
 // ---------- base64 fallback (unchanged) ----------
@@ -52,48 +51,32 @@ const toBase64 = (s: string) => {
 };
 
 // ---------- Controller (hook) ----------
-export function useSamsungRemoteController(initialIp = '192.168.1.62') {
-  const [ip, setIp] = useState(initialIp);
+export function useSamsungRemoteController(persistent = false) {
+  const [ip, setIp] = useState<string>('');
   const [status, setStatus] = useState<ReadyState>('DISCONNECTED');
   const [log, setLog] = useState<string>('');
   const [token, setToken] = useState<string | undefined>(undefined);
+  const [isInsecureMode, setIsInsecureMode] = useState<boolean>(false);
   const [connectedTvName, setConnectedTvName] = useState<string>('');
-  const [autoConnectEnabled, setAutoConnectEnabled] = useState(true);
 
   const heartbeatRef = useRef<number | null>(null);
   const subsRef = useRef<{ remove: () => void }[]>([]);
   const isInitializedRef = useRef(false);
 
-  // Load saved connection data on mount
+  // Load saved connection data on mount (no auto-connect)
   useEffect(() => {
     const loadSavedConnection = async () => {
       try {
-        const [savedIp, savedName, savedToken, autoConnect] = await Promise.all([
+        const [savedIp, savedName, savedToken] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CONNECTED_TV_IP),
           AsyncStorage.getItem(STORAGE_KEYS.CONNECTED_TV_NAME),
           AsyncStorage.getItem(STORAGE_KEYS.CONNECTED_TV_TOKEN),
-          AsyncStorage.getItem(STORAGE_KEYS.AUTO_CONNECT),
         ]);
 
         if (savedIp) {
           setIp(savedIp);
           setConnectedTvName(savedName || '');
           if (savedToken) setToken(savedToken);
-        }
-
-        if (autoConnect !== null) {
-          setAutoConnectEnabled(autoConnect === 'true');
-        }
-
-        // Auto-connect if enabled and we have a saved IP
-        if (autoConnect !== 'false' && savedIp && !isInitializedRef.current) {
-          isInitializedRef.current = true;
-          setTimeout(() => {
-            appendLog(`Auto-connecting to saved TV: ${savedIp}`);
-            connect(savedIp);
-          }, 1000);
-        } else {
-          isInitializedRef.current = true;
         }
       } catch (error) {
         appendLog(`Failed to load saved connection: ${error}`);
@@ -142,6 +125,11 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
     return `wss://${ipAddr}:8002/api/v2/channels/samsung.remote.control?name=${name}${t}`;
   }, []);
 
+  const makeInsecureUrl = useCallback((ipAddr: string) => {
+    const name = encodeURIComponent(toBase64('RN Remote'));
+    return `ws://${ipAddr}:8001/api/v2/channels/samsung.remote.control?name=${name}`;
+  }, []);
+
   const detachListeners = useCallback(() => {
     subsRef.current.forEach(s => {
       try { s.remove(); } catch { /* ignore */ }
@@ -154,7 +142,7 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
     detachListeners();
 
     const onOpen = emitter.addListener('SamsungWs_open', () => {
-      appendLog('Secure socket open.');
+      appendLog(isInsecureMode ? 'Insecure socket open.' : 'Secure socket open.');
     });
 
     const onMessage = emitter.addListener('SamsungWs_message', async (text: string) => {
@@ -184,7 +172,7 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
     });
 
     subsRef.current = [onOpen, onMessage, onClosed, onError];
-  }, [appendLog, clearHeartbeat, detachListeners, ip]);
+  }, [appendLog, clearHeartbeat, detachListeners, ip, isInsecureMode]);
 
   const ensureToken = useCallback(async (): Promise<string> => {
     const key = `samsung_token_${ip}`;
@@ -210,6 +198,7 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
 
     try {
       setStatus('CONNECTING');
+      setIsInsecureMode(false);
       appendLog(`Connecting to ${ip} (secure)…`);
       attachListeners();
 
@@ -221,11 +210,23 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
       setStatus('CONNECTED');
       appendLog('Connected via wss:8002 using native bridge.');
     } catch (e: any) {
-      setStatus('ERROR');
-      appendLog(`Connect failed: ${String(e?.message || e)}`);
-      Alert.alert('Connection failed', String(e?.message || e));
+      appendLog(`Secure connect failed (${String(e?.message || e)}). Trying insecure ws:8001…`);
+      try {
+        setIsInsecureMode(true);
+        // No token required on insecure channel
+        const url = makeInsecureUrl(ip);
+        await Native.SamsungWs.connect(url, ip);
+        startHeartbeat();
+        setStatus('CONNECTED');
+        appendLog('Connected via ws:8001 (insecure fallback).');
+        // Do not alert here; success case.
+      } catch (e2: any) {
+        setStatus('ERROR');
+        appendLog(`Insecure connect failed: ${String(e2?.message || e2)}`);
+        Alert.alert('Connection failed', `Secure and insecure connection attempts failed.\nSecure: ${String(e?.message || e)}\nInsecure: ${String(e2?.message || e2)}`);
+      }
     }
-  }, [ip, attachListeners, ensureToken, makeSecureUrl, startHeartbeat, appendLog]);
+  }, [ip, attachListeners, ensureToken, makeSecureUrl, makeInsecureUrl, startHeartbeat, appendLog]);
 
   const disconnect = useCallback(() => {
     clearHeartbeat();
@@ -286,15 +287,6 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
     }
   }, [appendLog]);
 
-  const setAutoConnect = useCallback(async (enabled: boolean) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTO_CONNECT, enabled.toString());
-      setAutoConnectEnabled(enabled);
-      appendLog(`Auto-connect ${enabled ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      appendLog(`Failed to set auto-connect: ${error}`);
-    }
-  }, [appendLog]);
 
   const getSavedTVInfo = useCallback(async () => {
     try {
@@ -314,19 +306,20 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
   const volumeDown = useCallback(() => sendKey('KEY_VOLDOWN'), [sendKey]);
   const mute = useCallback(() => sendKey('KEY_MUTE'), [sendKey]);
 
-  // cleanup on unmount (unchanged)
+  // cleanup on unmount - only disconnect if not persistent
   useEffect(() => () => {
     clearHeartbeat();
     detachListeners();
-    try { Native.SamsungWs?.disconnect(); } catch {}
-  }, [detachListeners, clearHeartbeat]);
+    if (!persistent) {
+      try { Native.SamsungWs?.disconnect(); } catch {}
+    }
+  }, [detachListeners, clearHeartbeat, persistent]);
 
   return {
     // state
     ip, setIp,
     status, log,
     connectedTvName,
-    autoConnectEnabled,
 
     // commands
     connect, disconnect, sendKey,
@@ -334,11 +327,11 @@ export function useSamsungRemoteController(initialIp = '192.168.1.62') {
     // persistent connection management
     saveConnectedTV,
     clearSavedTV,
-    setAutoConnect,
     getSavedTVInfo,
 
     // convenience
     volumeUp, volumeDown, mute,
+    isInsecure: isInsecureMode,
     isConnected: status === 'CONNECTED',
     getToken: () => token,
   };

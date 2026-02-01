@@ -19,7 +19,7 @@ import COLORS from '@/app/theme/colors';
 import { textStyles } from '@/app/theme/fonts';
 import ChannelButton from '@/app/components/ChannelButton';
 import { loadSelectedChannels } from '@/app/storage/channels';
-import { usePersistentTVConnection } from '@/src/usePersistentTVConnection';
+import { useTVConnection } from '@/src/TVConnectionContext';
 
 type SavedRaw = {
   id?: string;
@@ -41,7 +41,7 @@ export default function TestingApp() {
   const [available, setAvailable] = useState<Saved[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const { isConnected, connectedTVName, connectedTVIP, refreshConnectionState, remoteController, runChannelTest } = usePersistentTVConnection();
+  const { isConnected, connectedTVName, connectedTVIP, refreshConnectionState, remoteController, runChannelTest } = useTVConnection();
   const [modalOpen, setModalOpen] = useState(false);
   const [phase, setPhase] = useState<0 | 1 | 2>(0); // 0: → first, 1: → second, 2: → back to first
   const [seconds, setSeconds] = useState(STEP_SECONDS);
@@ -162,7 +162,7 @@ export default function TestingApp() {
   return (
     <View style={styles.container}>
             {/* Connection status indicator */}
-      <View style={styles.connectionStatus}>
+      {/* <View style={styles.connectionStatus}>
         <View
           style={[
             styles.statusDot,
@@ -185,7 +185,7 @@ export default function TestingApp() {
         >
           <Text style={styles.refreshButtonText}>🔄</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
       <View style={styles.stepsBox}>
         <Text style={styles.step}>
           1. Vyber dvě TV stanice (z těch, které mají přiřazené číslo).

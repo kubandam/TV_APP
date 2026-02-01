@@ -5,8 +5,8 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePersistentTVConnection } from '@/src/usePersistentTVConnection';
 import { RemoteKey } from '@/src/useSamsungRemoteController';
+import { useTVConnection } from '@/src/TVConnectionContext';
 
 type Props = {
   visible: boolean;
@@ -32,10 +32,9 @@ export default function BottomNumberSheet({
   useEffect(() => {
     setValue(defaultValue);
   }, [defaultValue]);
-  const { 
-    isConnected,
-    remoteController 
-  } = usePersistentTVConnection();
+
+  const { remoteController } = useTVConnection();
+
   useEffect(() => {
     if (visible) {
       Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true })
@@ -46,7 +45,7 @@ export default function BottomNumberSheet({
   }, [visible, translateY]);
 
   const onSwitch = () => {
-    if (!isConnected) {
+    if (!remoteController.isConnected) {
       Alert.alert('Nepřipojeno k TV', 'Nejprve se připojte k TV v nastavení.');
       return;
     }
