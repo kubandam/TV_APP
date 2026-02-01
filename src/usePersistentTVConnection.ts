@@ -234,30 +234,28 @@ export function usePersistentTVConnection() {
   }, [remoteController]);
 
   // Helper function to switch to a specific channel
-  const switchToChannel = useCallback((channelNumber: number) => {
+  const switchToChannel = useCallback(async (channelNumber: number): Promise<void> => {
     if (!remoteController.isConnected) {
       console.error('Cannot switch channel: not connected to TV');
-      return;
+      throw new Error('Not connected to TV');
     }
 
     const channelStr = channelNumber.toString();
     console.log(`Switching to channel: ${channelStr}`);
 
-    // Send each digit of the channel number
+    // Send each digit of the channel number with proper delays
     for (let i = 0; i < channelStr.length; i++) {
       const digit = parseInt(channelStr[i]);
       const key = `KEY_${digit}` as RemoteKey;
       
-      // Send each digit with a small delay to ensure proper input
-      setTimeout(() => {
-        remoteController.sendKey(key);
-      }, i * 200); // 200ms delay between digits
+      // Wait before sending each digit
+      await new Promise(resolve => setTimeout(resolve, 200));
+      remoteController.sendKey(key);
     }
 
     // Send ENTER after all digits to confirm the channel
-    setTimeout(() => {
-      remoteController.sendKey('KEY_ENTER');
-    }, channelStr.length * 200 + 100);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    remoteController.sendKey('KEY_ENTER');
   }, [remoteController]);
 
   return {
@@ -275,6 +273,9 @@ export function usePersistentTVConnection() {
     
     // Channel test functionality
     runChannelTest,
+    
+    // Channel switching
+    switchToChannel,
     
     // Remote controller access (for advanced usage)
     remoteController,

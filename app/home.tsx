@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import COLORS from '@/app/theme/colors';
 import { textStyles } from '@/app/theme/fonts';
 import { router } from 'expo-router';
 import ChannelsButtons from './components/ChannelsButtons';
+import ChannelSwitchNotification from './components/ChannelSwitchNotification';
 import { Ionicons } from '@expo/vector-icons';
 import {
   loadSelectedChannels,
@@ -12,6 +13,7 @@ import {
 } from './storage/channels';
 import { RemoteKey } from '@/src/useSamsungRemoteController';
 import { useTVConnection } from '@/src/TVConnectionContext';
+import { reportCurrentChannel } from '@/src/api/config';
 
 // New local type (= what ChannelsButtons expects)
 type Channel = { label: string; appOrder: number; tvNumber?: number };
@@ -22,7 +24,7 @@ export default function Home() {
     new Set(),
   );
   const [refreshKey, setRefreshKey] = useState(0);
-  const { isConnected, connectedTVName, connectedTVIP, refreshConnectionState, remoteController, runChannelTest } = useTVConnection();
+  const { isConnected, connectedTVName, connectedTVIP, refreshConnectionState, remoteController, runChannelTest, switchToChannel } = useTVConnection();
 
 
   // Debug logging
@@ -51,6 +53,10 @@ export default function Home() {
       setChannels(migrated.sort((a, b) => a.appOrder - b.appOrder));
     })();
   }, []);
+
+  // In-app numeric input helper for bottom keypad
+  const [inputDigits, setInputDigits] = useState<string>('');
+  const enterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // persist helper (re-number appOrder 1..N)
   const persist = async (list: Channel[]) => {
@@ -116,7 +122,7 @@ export default function Home() {
   const handleChannelPress = async (tvNumber: number) => {
     if (!remoteController.isConnected) {
       Alert.alert(
-        'Nepřipojeno k TV', 
+        'Nepřipojeno k TV',
         'Nejprve se připojte k TV v nastavení.',
         [
           { text: 'Zrušit', style: 'cancel' },
@@ -129,16 +135,21 @@ export default function Home() {
     try {
       // Send channel number digit by digit
       const digits = String(tvNumber).split('').map(Number);
-      
+
       for (const digit of digits) {
         await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between digits
         remoteController.sendKey(`KEY_${digit}` as RemoteKey);
       }
-      
+
       // Send ENTER to confirm the channel
       await new Promise(resolve => setTimeout(resolve, 300));
       remoteController.sendKey('KEY_ENTER');
-      
+
+      // Report current channel to API (for auto-switch back after ads)
+      reportCurrentChannel(tvNumber).catch(err =>
+        console.warn('Failed to report current channel:', err)
+      );
+
       Alert.alert('Odesláno', `TV by se měla přepnout na kanál ${tvNumber}.`);
     } catch (error) {
       console.error('Failed to send channel:', error);
@@ -146,8 +157,62 @@ export default function Home() {
     }
   };
 
+  // --- Bottom keypad handlers ---
+  const ensureConnected = () => {
+    if (!remoteController.isConnected) {
+      Alert.alert(
+        'Nepřipojeno k TV',
+        'Nejprve se připojte k TV v nastavení.',
+        [
+          { text: 'Zrušit', style: 'cancel' },
+          { text: 'Nastavení', onPress: () => router.push('/settings') },
+        ],
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const handleDigitPress = (digit: number) => {
+    if (!ensureConnected()) return;
+    try {
+      remoteController.sendKey(`KEY_${digit}` as RemoteKey);
+      // accumulate and auto confirm after a short delay
+      const next = `${inputDigits}${digit}`;
+      setInputDigits(next);
+      if (enterTimerRef.current) clearTimeout(enterTimerRef.current);
+      enterTimerRef.current = setTimeout(() => {
+        remoteController.sendKey('KEY_ENTER');
+        // Report channel to API (for auto-switch back after ads)
+        const channelNum = parseInt(next, 10);
+        if (!isNaN(channelNum)) {
+          reportCurrentChannel(channelNum).catch(err =>
+            console.warn('Failed to report current channel:', err)
+          );
+        }
+        setInputDigits('');
+        enterTimerRef.current = null;
+      }, 1200);
+    } catch (e) {
+      console.error('Failed to send digit:', e);
+    }
+  };
+
+  const handleChannelUp = () => {
+    if (!ensureConnected()) return;
+    remoteController.sendKey('KEY_CHUP');
+  };
+
+  const handleChannelDown = () => {
+    if (!ensureConnected()) return;
+    remoteController.sendKey('KEY_CHDOWN');
+  };
+
   return (
     <View style={styles.container}>
+      {/* Floating channel switch notification */}
+      <ChannelSwitchNotification />
+      
       <View style={styles.header}>
         <Ionicons
           name="settings"
@@ -203,6 +268,43 @@ export default function Home() {
         onRemoveChannel={handleRemoveChannel}
         onChannelPress={handleChannelPress} // Now connected to TV
       />
+
+      {/* Bottom keypad for quick channel switching */}
+      <View style={styles.bottomKeypad}>
+        <View style={styles.numpad}>
+          <View style={styles.row}>
+            {[1, 2, 3].map(d => (
+              <TouchableOpacity key={d} style={styles.numBtn} onPress={() => handleDigitPress(d)}>
+                <Text style={styles.numText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.row}>
+            {[4, 5, 6].map(d => (
+              <TouchableOpacity key={d} style={styles.numBtn} onPress={() => handleDigitPress(d)}>
+                <Text style={styles.numText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.row}>
+            {[7, 8, 9].map(d => (
+              <TouchableOpacity key={d} style={styles.numBtn} onPress={() => handleDigitPress(d)}>
+                <Text style={styles.numText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View style={styles.channelArrows}>
+          <TouchableOpacity style={styles.arrowBtn} onPress={handleChannelUp}>
+            <Ionicons name="chevron-up" size={22} color={COLORS.textPrimary} />
+            <Text style={styles.arrowLabel}>Kanál +</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.arrowBtn} onPress={handleChannelDown}>
+            <Ionicons name="chevron-down" size={22} color={COLORS.textPrimary} />
+            <Text style={styles.arrowLabel}>Kanál -</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -257,5 +359,59 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: 16,
+  },
+  bottomKeypad: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 20,
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+  },
+  numpad: {
+    flex: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  numBtn: {
+    width: 64,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+  },
+  numText: {
+    ...textStyles.h4,
+    color: COLORS.textPrimary,
+  },
+  channelArrows: {
+    width: 120,
+    marginLeft: 12,
+    justifyContent: 'space-between',
+  },
+  arrowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    backgroundColor: '#FFD33D',
+  },
+  arrowLabel: {
+    ...textStyles.buttonSmall,
+    color: COLORS.textPrimary,
+    marginLeft: 6,
   },
 });
