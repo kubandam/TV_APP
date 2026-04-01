@@ -26,7 +26,7 @@ Každý záznam obsahuje:
 ### 3. Testovanie
 
 Pre testovanie môžete:
-1. Otvoriť API monitor na https://tv-bridge-api.onrender.com/monitor
+1. Otvoriť API monitor na https://tv-bridge-api-ih76.onrender.com/monitor
 2. Manuálne vytvoriť príkaz (napr. simulovať začiatok/koniec reklamy)
 3. Sledovať v aplikácii v logu, ako sa príkaz vykonal
 
